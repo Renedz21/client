@@ -50,6 +50,7 @@ export type FileUploadState = {
   errors: string[];
   uploading: boolean;
   uploadProgress: Record<string, UploadProgress>;
+  uploadedFiles: Set<string>;
 };
 
 export type FileUploadActions = {
@@ -95,6 +96,7 @@ export const useFileUpload = (
     errors: [],
     uploading: false,
     uploadProgress: {},
+    uploadedFiles: new Set(),
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -168,8 +170,16 @@ export const useFileUpload = (
 
   const clearFiles = useCallback(() => {
     setState((prev) => {
-      // Clean up object URLs
-      prev.files.forEach((file) => {
+      // Only remove non-uploaded files
+      const filesToRemove = prev.files.filter(
+        (file) => !prev.uploadedFiles.has(file.id)
+      );
+      const filesToKeep = prev.files.filter((file) =>
+        prev.uploadedFiles.has(file.id)
+      );
+
+      // Clean up object URLs for removed files
+      filesToRemove.forEach((file) => {
         if (
           file.preview &&
           file.file instanceof File &&
@@ -185,7 +195,7 @@ export const useFileUpload = (
 
       const newState = {
         ...prev,
-        files: [],
+        files: filesToKeep,
         errors: [],
       };
 
@@ -304,6 +314,11 @@ export const useFileUpload = (
   const removeFile = useCallback(
     (id: string) => {
       setState((prev) => {
+        // Prevent removing uploaded files
+        if (prev.uploadedFiles.has(id)) {
+          return prev;
+        }
+
         const fileToRemove = prev.files.find((file) => file.id === id);
         if (
           fileToRemove &&
@@ -436,16 +451,10 @@ export const useFileUpload = (
           options.onUploadProgress?.(fileId, progress);
         });
 
+        // Mark file as uploaded
         setState((prev) => ({
           ...prev,
-          uploadProgress: {
-            ...prev.uploadProgress,
-            [fileId]: {
-              loaded: prev.uploadProgress[fileId]?.total || 0,
-              total: prev.uploadProgress[fileId]?.total || 0,
-              percentage: 100,
-            },
-          },
+          uploadedFiles: new Set([...prev.uploadedFiles, fileId]),
         }));
 
         options.onUploadSuccess?.(fileId, response);
@@ -466,8 +475,9 @@ export const useFileUpload = (
   );
 
   const uploadAllFiles = useCallback(async (): Promise<UploadResponse[]> => {
+    // Only upload files that haven't been uploaded yet
     const fileFiles = state.files.filter(
-      (file) => file.file instanceof File
+      (file) => file.file instanceof File && !state.uploadedFiles.has(file.id)
     ) as FileWithPreview[];
 
     if (fileFiles.length === 0) {
@@ -489,22 +499,13 @@ export const useFileUpload = (
         }
       );
 
-      // Update progress to 100% for all files
-      const progressUpdate = fileFiles.reduce((acc, file) => {
-        acc[file.id] = {
-          loaded: file.file.size,
-          total: file.file.size,
-          percentage: 100,
-        };
-        return acc;
-      }, {} as Record<string, UploadProgress>);
-
+      // Mark all files as uploaded and call success callbacks
+      const uploadedFileIds = fileFiles.map((file) => file.id);
       setState((prev) => ({
         ...prev,
-        uploadProgress: { ...prev.uploadProgress, ...progressUpdate },
+        uploadedFiles: new Set([...prev.uploadedFiles, ...uploadedFileIds]),
       }));
 
-      // Call success callbacks
       responses.forEach((response, index) => {
         const fileId = fileFiles[index].id;
         options.onUploadSuccess?.(fileId, response);
@@ -521,7 +522,7 @@ export const useFileUpload = (
     } finally {
       setState((prev) => ({ ...prev, uploading: false }));
     }
-  }, [state.files, options]);
+  }, [state.files, state.uploadedFiles, options]);
 
   return [
     state,

@@ -4,10 +4,13 @@ import {
   UploadIcon,
   XIcon,
   LoaderIcon,
+  CheckCircleIcon,
+  LockIcon,
 } from "lucide-react";
 
 import { formatBytes, useFileUpload } from "@/hooks/use-file-upload";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function UploadFile() {
   const maxSizeMB = 5;
@@ -15,7 +18,7 @@ export default function UploadFile() {
   const maxFiles = 50;
 
   const [
-    { files, isDragging, errors, uploading, uploadProgress },
+    { files, isDragging, errors, uploading, uploadedFiles },
     {
       handleDragEnter,
       handleDragLeave,
@@ -35,9 +38,11 @@ export default function UploadFile() {
     initialFiles: [],
     onUploadSuccess: (fileId, response) => {
       console.log(`File ${fileId} uploaded successfully:`, response);
+      toast.success("Archivo subido correctamente");
     },
     onUploadError: (fileId, error) => {
       console.error(`File ${fileId} upload failed:`, error);
+      toast.error("Error al subir archivo");
     },
   });
 
@@ -89,84 +94,99 @@ export default function UploadFile() {
       {/* File list */}
       {files.length > 0 && (
         <div className="space-y-2">
-          {files.map((file) => (
-            <div
-              key={file.id}
-              className="bg-background flex items-center justify-between gap-2 rounded-lg border p-2 pe-3"
-            >
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="bg-accent aspect-square shrink-0 rounded">
-                  <img
-                    src={file.preview}
-                    alt={file.file.name}
-                    className="size-10 rounded-[inherit] object-cover"
-                  />
-                </div>
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <p className="truncate text-[13px] font-medium">
-                    {file.file.name}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatBytes(file.file.size)}
-                  </p>
-                  {uploadProgress[file.id] && (
-                    <div className="flex items-center gap-1">
-                      <div className="flex-1 bg-muted rounded-full h-1">
-                        <div
-                          className="bg-primary h-1 rounded-full transition-all duration-300"
-                          style={{
-                            width: `${uploadProgress[file.id].percentage}%`,
-                          }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {uploadProgress[file.id].percentage}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                size="icon"
-                variant="ghost"
-                className="text-muted-foreground/80 hover:text-foreground -me-2 size-8 hover:bg-transparent"
-                onClick={() => removeFile(file.id)}
-                aria-label="Remove file"
+          {files.map((file) => {
+            const isUploaded = uploadedFiles.has(file.id);
+            return (
+              <div
+                key={file.id}
+                className={`bg-background flex items-center justify-between gap-2 rounded-lg border p-2 pe-3 ${
+                  isUploaded ? "opacity-75" : ""
+                }`}
               >
-                <XIcon aria-hidden="true" />
-              </Button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="bg-accent aspect-square shrink-0 rounded relative">
+                    <img
+                      src={file.preview}
+                      alt={file.file.name}
+                      className="size-10 rounded-[inherit] object-cover"
+                    />
+                    {isUploaded && (
+                      <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-0.5">
+                        <CheckCircleIcon className="size-3" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <div className="flex items-center gap-1">
+                      <p className="truncate text-[13px] font-medium">
+                        {file.file.name}
+                      </p>
+                      {isUploaded && (
+                        <LockIcon className="size-3 text-muted-foreground" />
+                      )}
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {formatBytes(file.file.size)}
+                      {isUploaded && " • Subido"}
+                    </p>
+                  </div>
+                </div>
+
+                {!isUploaded && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-muted-foreground/80 hover:text-foreground -me-2 size-8 hover:bg-transparent"
+                    onClick={() => removeFile(file.id)}
+                    aria-label="Remove file"
+                  >
+                    <XIcon aria-hidden="true" />
+                  </Button>
+                )}
+              </div>
+            );
+          })}
 
           {/* Upload and Remove buttons */}
           <div className="flex gap-2">
-            {files.length > 0 && (
-              <Button
-                size="sm"
-                onClick={uploadFiles}
-                disabled={uploading}
-                className="flex items-center gap-2"
-              >
-                {uploading ? (
-                  <>
-                    <LoaderIcon className="size-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <UploadIcon className="size-4" />
-                    Upload {files.length} file{files.length > 1 ? "s" : ""}
-                  </>
-                )}
-              </Button>
-            )}
+            {(() => {
+              const nonUploadedFiles = files.filter(
+                (file) => !uploadedFiles.has(file.id)
+              );
+              const hasNonUploadedFiles = nonUploadedFiles.length > 0;
 
-            {files.length > 1 && (
-              <Button size="sm" variant="outline" onClick={clearFiles}>
-                Remove all files
-              </Button>
-            )}
+              return (
+                <>
+                  {hasNonUploadedFiles && (
+                    <Button
+                      size="sm"
+                      onClick={uploadFiles}
+                      disabled={uploading}
+                      className="flex items-center gap-2"
+                    >
+                      {uploading ? (
+                        <>
+                          <LoaderIcon className="size-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <UploadIcon className="size-4" />
+                          Upload {nonUploadedFiles.length} file
+                          {nonUploadedFiles.length > 1 ? "s" : ""}
+                        </>
+                      )}
+                    </Button>
+                  )}
+
+                  {hasNonUploadedFiles && nonUploadedFiles.length > 1 && (
+                    <Button size="sm" variant="outline" onClick={clearFiles}>
+                      Remove unuploaded files
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
