@@ -28,7 +28,7 @@ export default function ImageCard() {
 
   if (isError) {
     return (
-      <div className="col-span-3 flex items-center justify-between rounded-lg border p-4 text-sm">
+      <div className="col-span-full flex items-center justify-between rounded-lg border p-4 text-sm">
         <span>
           Error loading images
           {error instanceof Error ? `: ${error.message}` : ""}
@@ -45,7 +45,7 @@ export default function ImageCard() {
 
   if (!images || images.data === undefined) {
     return (
-      <div className="col-span-3 rounded-lg border p-6 text-center text-sm text-muted-foreground">
+      <div className="col-span-full rounded-lg border p-6 text-center text-sm text-muted-foreground">
         No images uploaded yet.
       </div>
     );
