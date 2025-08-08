@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:4000/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 
 export interface UploadResponse {
   id: string;
@@ -14,6 +15,30 @@ export interface UploadProgress {
   percentage: number;
 }
 
+export interface ResponsiveUrls {
+  thumbnail: string;
+  small: string;
+  medium: string;
+  large: string;
+  original: string;
+}
+
+export interface IImageItem {
+  data: {
+    url: string;
+    publicId: string;
+    originalName?: string;
+    size?: number;
+    responsiveUrls?: ResponsiveUrls;
+    dimensions?: {
+      width: number;
+      height: number;
+    };
+    format?: string;
+    optimizedSize?: number; // Size after Cloudinary optimization
+  }[];
+}
+
 export class UploadError extends Error {
   constructor(
     message: string,
@@ -24,6 +49,19 @@ export class UploadError extends Error {
     this.name = "UploadError";
   }
 }
+
+export const getImages = async (): Promise<IImageItem> => {
+  const response = await fetch(`${API_BASE_URL}/images`);
+  if (!response.ok) {
+    throw new UploadError(
+      `Failed to fetch images with status ${response.status}`,
+      response.status,
+      await response.text().catch(() => undefined)
+    );
+  }
+  const data = (await response.json()) as IImageItem;
+  return data;
+};
 
 export const uploadFile = async (
   file: File,

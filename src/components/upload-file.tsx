@@ -7,12 +7,14 @@ import {
   CheckCircleIcon,
   LockIcon,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { formatBytes, useFileUpload } from "@/hooks/use-file-upload";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function UploadFile() {
+  const queryClient = useQueryClient();
   const maxSizeMB = 5;
   const maxSize = maxSizeMB * 1024 * 1024; // 5MB default
   const maxFiles = 50;
@@ -39,6 +41,8 @@ export default function UploadFile() {
     onUploadSuccess: (fileId, response) => {
       console.log(`File ${fileId} uploaded successfully:`, response);
       toast.success("Archivo subido correctamente");
+      // Refresh images list in the grid immediately after a successful upload
+      queryClient.invalidateQueries({ queryKey: ["images"] });
     },
     onUploadError: (fileId, error) => {
       console.error(`File ${fileId} upload failed:`, error);
